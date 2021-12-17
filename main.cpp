@@ -84,7 +84,7 @@ int main() {
         std::vector<std::thread> workers;
         std::vector<std::future<void>> futures;
         boost::asio::io_service::work asio_work{ctx};
-        std::size_t asio_threads{2};
+        std::size_t asio_threads{1};
 
         for (size_t t = 0; t < asio_threads; ++t) {
             std::thread thd([t, &ctx]() {

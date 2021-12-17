@@ -46,7 +46,9 @@ private:
 
 class Producer : public Worker {
 public:
-    explicit Producer(boost::asio::io_context &ctx) : Worker(ctx), strand_{ctx} {
+    explicit Producer(boost::asio::io_context &ctx) : Worker(ctx), strand_{ctx}, asio_timer_{
+            std::make_unique<boost::asio::deadline_timer>(ctx_,
+                                                          boost::posix_time::milliseconds(interval_in_millisec))} {
     }
 
 protected:
@@ -57,21 +59,43 @@ protected:
 private:
     void Produce() {
         strand_.post([this] {
-            return Work();
-            //auto fut = std::async([this]() { std::cout << "Work " << data_ << '\n'; });
+            // Approach 1
+            {
+                data_ += 1;
+                std::this_thread::sleep_for(std::chrono::seconds(1)); // Simulate work
+                Schedule();
+            }
+            // Approach 2
+            //return Work();
+        });
+    }
+
+    void Schedule() {
+        asio_timer_->async_wait([this](const boost::system::error_code &err) {
+            if (err) {
+                std::cout << "Timer failed: " << err.message();
+            }
+            std::cout << "Schedule " << data_ << '\n';
+            if(!stop) {
+                Produce();
+            } else {
+                Shutdown();
+            }
         });
     }
 
     void Work() {
         while (!stop) {
-        //while (data_ < 5) {
+            //while (data_ < 5) {
             std::cout << "Work " << data_ << '\n';
             data_ += 1;
-            std::this_thread::sleep_for(std::chrono::seconds(1));
+            std::this_thread::sleep_for(std::chrono::seconds(1)); // Simulate work
         }
         Shutdown();
     }
 
     boost::asio::io_context::strand strand_;
+    std::unique_ptr<boost::asio::deadline_timer> asio_timer_;
+    uint64_t interval_in_millisec{0};
     size_t data_{0};
 };
